@@ -14,6 +14,7 @@ set(CPP_SOURCES
 set(CUDA_SOURCES
     bfs1.cu
     bfs2.cu
+    create_graph.cpp
 )
 
 message(STATUS "CPP Sources: ${CPP_SOURCES}")
