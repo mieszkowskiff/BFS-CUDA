@@ -8,11 +8,15 @@ set(CMAKE_CUDA_STANDARD 14)
 # Źródła projektu
 set(CPP_SOURCES
     main.cpp
+    bfs0.cpp
 )
 
 set(CUDA_SOURCES
-    bfs.cu
+    bfs1.cu
+    bfs2.cu
 )
+
+message(STATUS "CPP Sources: ${CPP_SOURCES}")
 
 # Dodaj katalogi z nagłówkami
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
