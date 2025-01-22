@@ -22,7 +22,7 @@ int main() {
         {2, 10},
         {2, 40}
     };
-    std::vector<unsigned long long int> distances = BFS(edges, weights);
+    std::vector<unsigned long long int> distances = BFS1(edges, weights);
     for (unsigned long long int i = 0; i < distances.size(); i++) {
         std::cout << "Distance from 0 to " << i << " is " << distances[i] << std::endl;
     }

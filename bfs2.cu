@@ -9,59 +9,44 @@
         std::cout << cudaGetErrorString(cudaStatus) << std::endl;   \
 
 
-__global__ void BFS_step(
+__global__ void BFS_step2(
     unsigned long long int* d_edges,
     unsigned long long int* d_indices,
     unsigned long long int* d_weights,
     unsigned long long int* d_distances,
     unsigned long long int* d_frontier,
     unsigned long long int* d_frontier_size,
-    unsigned long long int* d_frontier_max_degree,
     int* d_is_in_frontier
 ) {
     int id = threadIdx.x + blockIdx.x * blockDim.x;
-    if(id >= *d_frontier_size * *d_frontier_max_degree) {
+    if(id >= *d_frontier_size) {
         return;
     }
-    unsigned long long int frontier_size = *d_frontier_size;
-    unsigned long long int location_in_frontier = id % frontier_size;
-    unsigned long long int neighbour_index = id / frontier_size;
 
-    unsigned long long int nodeA = d_frontier[location_in_frontier];
+    unsigned long long int nodeA = d_frontier[id];
 
-    unsigned long long int edge_index = d_indices[nodeA] + neighbour_index;
-    if(edge_index >= d_indices[nodeA + 1]) {
-        return;
-    }
-    
-    unsigned long long int nodeB = d_edges[edge_index];
-    unsigned long long int weight = d_weights[edge_index];
-
-    unsigned long long int new_distance = d_distances[nodeA] + weight;
-    unsigned long long int old_distance = d_distances[nodeB];
     __syncthreads();
     *d_frontier_size = 0;
-    *d_frontier_max_degree = 0;
     __syncthreads();
-    
-    if (new_distance < old_distance) {
-        atomicMin(&d_distances[nodeB], new_distance);
-        
-        unsigned long long int is_in_frontier = atomicCAS(&d_is_in_frontier[nodeB], 0, 1);
-        
-        if (is_in_frontier == 0) {
-            
-            unsigned long long int new_frontier_index = atomicAdd(d_frontier_size, 1);
-            
-            d_frontier[new_frontier_index] = nodeB;
-            atomicMax(d_frontier_max_degree, d_indices[nodeB + 1] - d_indices[nodeB]);
-            
+
+    for (unsigned long long int i = d_indices[nodeA]; i < d_indices[nodeA + 1]; i++) {
+        unsigned long long int nodeB = d_edges[i];
+        unsigned long long int weight = d_weights[i];
+        unsigned long long int old_distance = d_distances[nodeB];
+        unsigned long long int new_distance = d_distances[nodeA] + weight;
+        if (new_distance < old_distance) {
+            atomicMin(&d_distances[nodeB], new_distance);
+            unsigned long long int is_in_frontier = atomicCAS(&d_is_in_frontier[nodeB], 0, 1);
+            if (is_in_frontier == 0) {
+                unsigned long long int new_frontier_index = atomicAdd(d_frontier_size, 1);
+                d_frontier[new_frontier_index] = nodeB;
+            }
         }
-    }
+    }   
 }
 
 
-std::vector<unsigned long long int> BFS(
+std::vector<unsigned long long int> BFS2(
     std::vector<std::vector<unsigned long long int>> edges,
     std::vector<std::vector<unsigned long long int>> weights
 ) {
@@ -114,31 +99,24 @@ std::vector<unsigned long long int> BFS(
     CUDA_CHECK(cudaMalloc(&d_frontier_size, sizeof(unsigned long long int)));
     CUDA_CHECK(cudaMemcpy(d_frontier_size, &frontier_size, sizeof(unsigned long long int), cudaMemcpyHostToDevice));
 
-    unsigned long long int h_frontier_max_degree = h_indices[1] - h_indices[0];
-    // printing indices
-    unsigned long long int* d_frontier_max_degree;
-    CUDA_CHECK(cudaMalloc(&d_frontier_max_degree, sizeof(unsigned long long int)));
-    CUDA_CHECK(cudaMemcpy(d_frontier_max_degree, &h_frontier_max_degree, sizeof(unsigned long long int), cudaMemcpyHostToDevice));
-
+   
     int* is_in_frontier;
     CUDA_CHECK(cudaMalloc(&is_in_frontier, n * sizeof(int)));
     CUDA_CHECK(cudaMemset(is_in_frontier, 0, n * sizeof(int)));
 
     while(true) {
-        CUDA_CHECK(cudaMemcpy(&h_frontier_max_degree, d_frontier_max_degree, sizeof(unsigned long long int), cudaMemcpyDeviceToHost));
         CUDA_CHECK(cudaMemcpy(&frontier_size, d_frontier_size, sizeof(unsigned long long int), cudaMemcpyDeviceToHost));
         if (frontier_size == 0) {
             break;
         }
         CUDA_CHECK(cudaMemset(is_in_frontier, 0, n * sizeof(int)));
-        BFS_step<<<(frontier_size * h_frontier_max_degree + 255) / 256, 256>>>(
+        BFS_step2<<<(frontier_size + 255) / 256, 256>>>(
             d_edges,
             d_indices,
             d_weights,
             d_distances,
             d_frontier,
             d_frontier_size,
-            d_frontier_max_degree,
             is_in_frontier
         );
     //endloop
@@ -156,7 +134,6 @@ std::vector<unsigned long long int> BFS(
     cudaFree(d_distances);
     cudaFree(d_frontier);
     cudaFree(d_frontier_size);
-    cudaFree(d_frontier_max_degree);
     cudaFree(is_in_frontier);
 
     return distances;
