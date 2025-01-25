@@ -53,6 +53,7 @@ __global__ void BFS_step1(
         if (is_in_frontier == 0) {
             
             unsigned long long int new_frontier_index = atomicAdd(d_frontier_size, 1);
+            printf("new_frontier_index: %llu\n", new_frontier_index);
             
             d_frontier[new_frontier_index] = nodeB;
             atomicMax(d_frontier_max_degree, d_indices[nodeB + 1] - d_indices[nodeB]);
@@ -189,6 +190,7 @@ std::vector<unsigned long long int> BFS1(
         if (frontier_size == 0) {
             break;
         }
+        printf("frontier_size: %llu\n", frontier_size);
         CUDA_CHECK(cudaMemset(is_in_frontier, 0, n * sizeof(int)));
         BFS_step1<<<(frontier_size * h_frontier_max_degree + 255) / 256, 256>>>(
             d_edges,
