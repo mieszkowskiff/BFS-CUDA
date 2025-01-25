@@ -56,7 +56,7 @@ std::vector<unsigned long long int> BFS2(
     std::vector<unsigned long long int> h_indices;
     std::vector<unsigned long long int> h_weights;
 
-    // this can be done in parallel probably
+    // flatten edges and weights
     unsigned long long int current_index = 0;
     for (const auto& inner : edges) {
         h_indices.push_back(current_index);
@@ -66,8 +66,8 @@ std::vector<unsigned long long int> BFS2(
     for (const auto& inner : weights) {
         h_weights.insert(h_weights.end(), inner.begin(), inner.end());
     }
-    unsigned long long int n = edges.size(); //number of nodes
-    unsigned long long int m = h_edges.size(); //number of edges
+    unsigned long long int n = edges.size();
+    unsigned long long int m = h_edges.size();
     h_indices.push_back(m);
     
 
@@ -75,22 +75,27 @@ std::vector<unsigned long long int> BFS2(
     unsigned long long int* d_indices;
     unsigned long long int* d_weights;
 
+
+    // initialize distances
     unsigned long long int* h_distances = new unsigned long long int[n];
     for (unsigned long long int i = 0; i < n; i++) {
         h_distances[i] = std::numeric_limits<unsigned long long int>::max();
     }
     h_distances[0] = 0;
+
     unsigned long long int* d_distances;
     
+    // initialize frontier
     unsigned long long int* d_frontier;
 
-    unsigned long long int frontier_size = 1; // or may be different value in case of starting
+    unsigned long long int frontier_size = 1;
     unsigned long long int* d_frontier_size;
     
     int* is_in_frontier;
 
     auto start_copying = std::chrono::high_resolution_clock::now();
 
+    // copy data to GPU
     CUDA_CHECK(cudaMalloc(&d_edges, h_edges.size() * sizeof(unsigned long long int)));
     CUDA_CHECK(cudaMalloc(&d_indices, h_indices.size() * sizeof(unsigned long long int)));
     CUDA_CHECK(cudaMalloc(&d_weights, h_weights.size() * sizeof(unsigned long long int)));
@@ -137,6 +142,8 @@ std::vector<unsigned long long int> BFS2(
         if (frontier_size == 0) {
             break;
         }
+
+        //bfs step
         CUDA_CHECK(cudaMemset(is_in_frontier, 0, n * sizeof(int)));
         BFS_step2<<<(frontier_size + 255) / 256, 256>>>(
             d_edges,
