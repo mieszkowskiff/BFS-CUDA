@@ -10,7 +10,7 @@ set(CPP_SOURCES
     main.cpp
     bfs0.cpp
 )
-
+ 
 set(CUDA_SOURCES
     bfs1.cu
     bfs2.cu
